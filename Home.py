@@ -1,10 +1,9 @@
 import streamlit as st
 from googleapiclient.discovery import build
-import streamlit.components.v1 as components
 import time
 import MySQLdb
 from MySQLdb import Error
-
+from datetime import date
 
 
 # Replace with your actual API key
@@ -22,6 +21,38 @@ st.set_page_config(
 st.markdown("<h1 style='text-align: center; color: red; font-size: 60px;'>Book Summary</h1>", unsafe_allow_html=True)
 
 st.markdown("""<hr style="height:10px;border:none;color:#333;background-color:#FF0000;" /> """, unsafe_allow_html=True)
+
+
+def timeout_message(msg):
+    time.sleep(3)
+    msg.empty()
+
+def create_db_connection_for_bookdb(host_name,user_name,user_password,db_name):
+    print('inside bookdb up calling')
+    conn = None    
+    try:
+        conn = MySQLdb.connect(
+            host=host_name,
+            user=user_name,
+            passwd=user_password,
+            database=db_name
+            )
+        print("MySQL Database connection successFull for" + db_name)        
+        timeout_message(st.success('DB connection Obtained', icon="✅"))
+    except Error as err:
+          timeout_message(st.error(f"Db connection error {err}", icon="🚨"))
+    exit
+    return conn
+
+def execute_query(conn,query):    
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        conn.commit()      
+        conn.close()  
+        timeout_message(st.success('Query Execution SuccessFull', icon="✅"))
+    except Error as err:
+        timeout_message(st.error(f"Query Execution failed {err}", icon="🚨"))
 
 # Function to fetch book data from Google Books API
 def getISBN13Dist(isbn_obj):
@@ -59,11 +90,11 @@ def setEmptyResponseObj(x):
      x['saleInfo']['retailPrice']['amount']=''
      x['saleInfo']['retailPrice']['currencyCode']=''
   if 'buyLink' not in x['saleInfo']:
-     x['saleInfo']['buyLink']=''
+     x['saleInfo']['buyLink']=None
 
 def insert_book_data(cursor, x, search_key):
     setEmptyResponseObj(x)    
-    print(f"final insert  {cursor}")
+    print(f"final insert  {cursor}")    
     try:
         # Extract data with default values for missing fields
         book_id = x.get('id', None)
@@ -83,16 +114,15 @@ def insert_book_data(cursor, x, search_key):
         average_rating = x['volumeInfo'].get('averageRating', 0.0)
         country = x['saleInfo'].get('country', None)
         saleability = x['saleInfo'].get('saleability', None)
-        is_ebook = x['saleInfo'].get('isEbook', False)
-        
+        is_ebook = x['saleInfo'].get('isEbook', False)        
         list_price_amount = x['saleInfo']['listPrice'].get('amount', 0.0)
-        list_price_currency = x['saleInfo']['listPrice'].get('currencyCode', None)
-        
+        list_price_currency = x['saleInfo']['listPrice'].get('currencyCode', None)        
         retail_price_amount = x['saleInfo']['retailPrice'].get('amount', 0.0)
         retail_price_currency = x['saleInfo']['retailPrice'].get('currencyCode', None)
         buy_link = x['saleInfo'].get('buyLink', None)
-        published_date = x['volumeInfo'].get('publishedDate', None) 
-        year = published_date.split('-')[0] if published_date else None 
+        published_date = x['volumeInfo'].get('publishedDate', date.today()) 
+        year = published_date.split('-')[0] if published_date else '2024-12-23' 
+        print(is_ebook + "year " + year)
 
         # Insert data into the database
         insert_query = """
@@ -114,7 +144,6 @@ def insert_book_data(cursor, x, search_key):
         print(f"DataBase Feeded Succesesfully {industry_identifiers}")
     except Exception as e:
         print(f"Error inserting book data: {e}")
-        #Handle the error appropriately (e.g., log the error, retry the insertion)
 
 
 # Main function to fetch and store book data
@@ -129,6 +158,7 @@ def fetch_and_store_data(cursor,query, num_books):
 
     for i in range(num_pages):
         startIndex = i * max_results_per_page
+        time.sleep(1)
         get_book_data(query,cursor, max_results=max_results_per_page, startIndex=startIndex)
     
 
@@ -183,47 +213,6 @@ def searchbook():
 def onSelect(opt):    
     st.session_state["clicked"] = True
 
-def timeout_message(msg):
-     time.sleep(3)
-     msg.empty()
-
-# if st.session_state["clicked"]:    
-#    msg= st.success("Done!")    
-#    time.sleep(3)
-#    msg.empty()
-#    st.session_state["clicked"] = False
-
-# def onSearch():
-#     print(st.session_state.text_key)
-#     print('inside on serarch')
-
-def create_db_connection_for_bookdb(host_name,user_name,user_password,db_name):
-    print('inside bookdb up calling')
-    conn = None    
-    try:
-        conn = MySQLdb.connect(
-            host=host_name,
-            user=user_name,
-            passwd=user_password,
-            database=db_name
-            )
-        print("MySQL Database connection successFull for" + db_name)        
-        timeout_message(st.success('DB connection Obtained', icon="✅"))
-    except Error as err:
-       print(f"Db connection error {err}")
-       timeout_message(st.error(f"Db connection error {err}", icon="🚨"))
-       exit
-    return conn
-
-def execute_query(conn,query):    
-    try:
-        cursor = conn.cursor()
-        cursor.execute(query)
-        conn.commit()      
-        conn.close()  
-        timeout_message(st.success('Query Execution SuccessFull', icon="✅"))
-    except Error as err:
-        timeout_message(st.error(f"Query Execution failed {err}", icon="🚨"))
 
 
 def cleanup():    
@@ -242,11 +231,4 @@ option= ...
 if left.button("Clean Up", use_container_width=True, args= [option]):
      cleanup()        
 if middle.button("Search",  use_container_width=True):
-    search_book = st.text_input("Please serch something",placeholder='enter to continue',on_change=searchbook,key='text_key')
-    
-
-
-
-
-
-
+    search_book = st.text_input("Please serch something",placeholder='enter to continue',on_change=searchbook,key='text_key')  
