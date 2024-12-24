@@ -5,7 +5,7 @@ import time
 import MySQLdb
 from MySQLdb import Error
 import pandas as pd
-import sqlalchemy
+import sqlalchemy as sa
 
 st.set_page_config(
     page_title="Book Sales summary",
@@ -32,7 +32,7 @@ def create_db_connection_for_bookdb(host_name,user_name,user_password,db_name):
         timeout_message(st.success('DB connection Obtained', icon="✅"))
     except Error as err:
           timeout_message(st.error(f"Db connection error {err}", icon="🚨"))
-    exit
+          exit()
     return conn
 
 st.session_state.selection = 0
@@ -67,17 +67,21 @@ selected = st.selectbox('Make a selection:', (
     ), index=st.session_state['selection'])
 
 def rederSQLdata(query,dbconn):
-    data_frame= pd.read_sql(query,dbconn)    
-    data_frame.style
+    try:
+        data_frame= pd.read_sql(query,dbconn)    
+        data_frame.style
+    except Error as err:
+        print('**panda rendering**')
+
 
 dbconn = create_db_connection_for_bookdb("localhost","root","","book_db")
 cursor = dbconn.cursor()
 if(selected =='Check Availability of eBooks vs Physical Books'):
     query = """
-                select CASE is_ebook
-                WHEN 0 THEN 'PhyscialBook'    
-                ELSE "Ebook"
-                END as Book,saleability as is_available, count(*) as total_qty  from book_summary where saleability ='FOR_SALE' group by is_ebook,saleability             
+                SELECT CASE IS_EBOOK
+                WHEN 0 THEN 'PHYSCIAL-BOOK'    
+                ELSE "E-BOOK"
+                END AS BOOK,SALEABILITY AS SALE_STATUS, COUNT(*) AS TOTAL_BOOKS  FROM BOOK_SUMMARY WHERE SALEABILITY ='FOR_SALE' GROUP BY IS_EBOOK,SALEABILITY             
            """
     rederSQLdata(query,dbconn)    
     
@@ -86,56 +90,56 @@ elif(selected == 'Find the Publisher with the Most Books Published'):
     rederSQLdata(query,dbconn)    
     
 elif(selected == 'Identify the Publisher with the Highest Average Rating'):
-    query="select Publisher,max(average_rating) as Highest_avg_Rating from book_summary where (PUBLISHER != '' AND PUBLISHER IS NOT NULL)"
+    query="SELECT PUBLISHER,MAX(AVERAGE_RATING) AS HIGHEST_AVG_RATING FROM BOOK_SUMMARY WHERE (PUBLISHER != '' AND PUBLISHER IS NOT NULL)"
     rederSQLdata(query,dbconn)    
     
 elif(selected == 'Get the Top 5 Most Expensive Books by Retail Price'):
-    query="select book_title,amount_retail_price from book_summary order by amount_retail_price desc limit 5"
-    rederSQLdata(query,dbconn)    
+    QUERY="SELECT BOOK_TITLE,AMOUNT_RETAIL_PRICE FROM BOOK_SUMMARY ORDER BY AMOUNT_RETAIL_PRICE DESC LIMIT 5"
+    rederSQLdata(QUERY,dbconn)    
     
 elif(selected == 'Find Books Published After 2010 with at Least 500 Pages'):    
-    query="select book_title,book_authors,YEAR(year) from book_summary where YEAR(year) >2010 and page_count >500"
-    rederSQLdata(query,dbconn)    
+    QUERY="SELECT BOOK_TITLE,BOOK_AUTHORS,YEAR(YEAR) FROM BOOK_SUMMARY WHERE YEAR(YEAR) >2010 AND PAGE_COUNT >500"
+    rederSQLdata(QUERY,dbconn)    
     
 elif(selected == 'List Books with Discounts Greater than 20%'):
-    query="select book_title,book_authors,amount_list_price, (amount_list_price * 0.2) as discount, (amount_list_price - ((amount_list_price * 0.2)))as actual_price, amount_retail_price from book_summary where amount_retail_price <(amount_list_price - ((amount_list_price * 0.2)))"
-    rederSQLdata(query,dbconn)    
+    QUERY="SELECT BOOK_TITLE,BOOK_AUTHORS,AMOUNT_LIST_PRICE, (AMOUNT_LIST_PRICE * 0.2) AS DISCOUNT, (AMOUNT_LIST_PRICE - ((AMOUNT_LIST_PRICE * 0.2)))AS ACTUAL_PRICE, AMOUNT_RETAIL_PRICE FROM BOOK_SUMMARY WHERE AMOUNT_RETAIL_PRICE <(AMOUNT_LIST_PRICE - ((AMOUNT_LIST_PRICE * 0.2)))"
+    rederSQLdata(QUERY,dbconn)    
     
 elif(selected == 'Find the Average Page Count for eBooks vs Physical Books'):
-    query="select CASE is_ebook WHEN 1 THEN 'Ebook' ELSE 'Physical book' END as Book, AVG(page_count) from book_summary group by Book"
-    rederSQLdata(query,dbconn)    
+    QUERY="SELECT CASE IS_EBOOK WHEN 1 THEN 'EBOOK' ELSE 'PHYSICAL BOOK' END AS BOOK, AVG(PAGE_COUNT) as AVG_PAGE_COUNT FROM BOOK_SUMMARY GROUP BY BOOK"
+    rederSQLdata(QUERY,dbconn)    
     
 elif(selected == 'Find the Top 3 Authors with the Most Books'):
-    query="select book_authors, count(*) as total_books from book_summary where (book_authors != '' AND book_authors IS NOT NULL) group by book_authors order by count(*) desc  limit 3"
-    rederSQLdata(query,dbconn)    
+    QUERY="SELECT BOOK_AUTHORS, COUNT(*) AS TOTAL_BOOKS FROM BOOK_SUMMARY WHERE (BOOK_AUTHORS != '' AND BOOK_AUTHORS IS NOT NULL) GROUP BY BOOK_AUTHORS ORDER BY COUNT(*) DESC  LIMIT 3"
+    rederSQLdata(QUERY,dbconn)    
     
 elif(selected == 'List Publishers with More than 10 Books'):
-    query="select Publisher , count(*) as total_books from book_summary where (PUBLISHER != '' AND PUBLISHER IS NOT NULL)  group by Publisher having count(*)>=10"
-    rederSQLdata(query,dbconn)    
+    QUERY="SELECT PUBLISHER , COUNT(*) AS TOTAL_BOOKS FROM BOOK_SUMMARY WHERE (PUBLISHER != '' AND PUBLISHER IS NOT NULL)  GROUP BY PUBLISHER HAVING COUNT(*)>=10"
+    rederSQLdata(QUERY,dbconn)    
     
 elif(selected == 'Find the Average Page Count for Each Category'):
-    query = "select categories, AVG(page_count) as AVG_PAGE_COUNT from book_summary group by categories order by AVG(page_count) desc limit 10"
-    rederSQLdata(query,dbconn)    
+    QUERY = "SELECT CATEGORIES, AVG(PAGE_COUNT) AS AVG_PAGE_COUNT FROM BOOK_SUMMARY GROUP BY CATEGORIES ORDER BY AVG(PAGE_COUNT) DESC"
+    rederSQLdata(QUERY,dbconn)    
     
 elif(selected == 'Retrieve Books with More than 3 Authors'):
-    query="select book_title from book_summary where  (book_authors != '' AND book_authors IS NOT NULL) group by book_title having count(book_authors)>2 order by count(book_authors) desc"
-    rederSQLdata(query,dbconn)    
+    QUERY="SELECT BOOK_TITLE FROM BOOK_SUMMARY WHERE  (BOOK_AUTHORS != '' AND BOOK_AUTHORS IS NOT NULL) GROUP BY BOOK_TITLE HAVING COUNT(BOOK_AUTHORS)>2 ORDER BY COUNT(BOOK_AUTHORS) DESC"
+    rederSQLdata(QUERY,dbconn)    
     
 elif(selected == 'Books with Ratings Count Greater Than the Average'):
-    query="select book_title,rating_Count,average_rating from book_summary where rating_Count >average_rating"
-    rederSQLdata(query,dbconn)    
+    QUERY="SELECT BOOK_TITLE,RATING_COUNT,AVERAGE_RATING FROM BOOK_SUMMARY WHERE RATING_COUNT >AVERAGE_RATING"
+    rederSQLdata(QUERY,dbconn)    
     
 elif(selected == 'Books with the Same Author Published in the Same Year'):
     query="select book_title,book_authors,Year from book_summary where (book_authors != '' AND book_authors IS NOT NULL) group by book_authors,Year"
     rederSQLdata(query,dbconn)    
     
 elif(selected == 'Books with a Specific Keyword in the Title'):
-    query = "select book_title, search_key from book_summary where lower(book_title) like '%python%'"
-    rederSQLdata(query,dbconn)    
+    QUERY = "SELECT BOOK_TITLE, SEARCH_KEY FROM BOOK_SUMMARY WHERE LOWER(BOOK_TITLE) LIKE '%PYTHON%'"
+    rederSQLdata(QUERY,dbconn)    
     
 elif(selected == 'Year with the Highest Average Book Price'):
-    query="select year,avg(amount_retail_price) from book_summary where (year != '' AND year IS NOT NULL) order by avg(amount_retail_price) desc"
-    rederSQLdata(query,dbconn)    
+    QUERY="SELECT YEAR,AVG(AMOUNT_RETAIL_PRICE) as Highest_AVG_PRICE FROM BOOK_SUMMARY WHERE (YEAR != '' AND YEAR IS NOT NULL) ORDER BY AVG(AMOUNT_RETAIL_PRICE) DESC"
+    rederSQLdata(QUERY,dbconn)    
     
 elif(selected == 'Count Authors Who Published 3 Consecutive Years'):
     query= """
@@ -191,33 +195,33 @@ elif(selected == 'Create a query to find the average amount_retailPrice of eBook
     
 elif(selected == 'Write a SQL query to identify books that have an averageRating that is more than two standard deviations away from the average rating of all books. Return the title, averageRating, and ratingsCount for these outliers.'):
     query="""
-                SELECT
-                        book_title,
-                        average_rating,
-                        ratings_count
+                 SELECT
+                        BOOK_TITLE,
+                        AVERAGE_RATING,
+                        RATINGS_COUNT
                 FROM
-                book_summary
+                BOOK_SUMMARY
                 WHERE
-                average_rating > (SELECT AVG(average_rating) + 2 * STDDEV(average_rating) FROM book_summary)
+                AVERAGE_RATING > (SELECT AVG(AVERAGE_RATING) + 2 * STDDEV(AVERAGE_RATING) FROM BOOK_SUMMARY)
                 OR
-                average_rating < (SELECT AVG(average_rating) - 2 * STDDEV(average_rating) FROM book_summary)                      
+                AVERAGE_RATING < (SELECT AVG(AVERAGE_RATING) - 2 * STDDEV(AVERAGE_RATING) FROM BOOK_SUMMARY)                       
           """
     rederSQLdata(query,dbconn)    
     
 elif(selected == 'Create a SQL query that determines which publisher has the highest average rating among its books, but only for publishers that have published more than 10 books. Return the publisher, average_rating, and the number of books published'):
     query="""
                 SELECT
-                        publisher,
-                        AVG(average_rating) AS average_rating,
-                        COUNT(*) AS book_count
+                        PUBLISHER,
+                        AVG(AVERAGE_RATING) AS AVERAGE_RATING,
+                        COUNT(*) AS BOOK_COUNT
                 FROM
-                        book_summary where (publisher != '' AND publisher IS NOT NULL)
+                        BOOK_SUMMARY WHERE (PUBLISHER != '' AND PUBLISHER IS NOT NULL)
                 GROUP BY
-                        publisher
+                        PUBLISHER
                 HAVING
                         COUNT(*) > 10
                 ORDER BY
-                        average_rating DESC
+                        AVERAGE_RATING DESC
                 LIMIT 1
      """
     rederSQLdata(query,dbconn)    
